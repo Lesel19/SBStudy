@@ -28,10 +28,6 @@ db.serialize(() => {
     )
   `);
 
-  // Force l'ID à commencer à 1000
-  db.run("DELETE FROM sqlite_sequence WHERE name='users'");
-  db.run("INSERT INTO sqlite_sequence (name, seq) VALUES ('users', 999)");
-  
   // Ajouter la colonne username si elle n'existe pas
   db.all("PRAGMA table_info(users)", (err, columns) => {
     if (err) return;
@@ -95,19 +91,34 @@ db.serialize(() => {
   `);
 
   console.log("✅ Tables créées/vérifiées");
-  console.log("📌 Les IDs utilisateur commenceront à 1000");
 });
 
 // ========== ROUTES DE TEST ==========
+app.get("/", (req, res) => {
+  res.json({ status: "ok", message: "API SBStudy fonctionne !" });
+});
+
 app.get("/test", (req, res) => {
   res.json({ message: "Backend fonctionne !" });
+});
+
+// ========== ROUTE DEBUG (À RETIRER APRÈS TEST) ==========
+app.get("/debug/users", (req, res) => {
+  db.all("SELECT id, email, username, created_at FROM users", [], (err, users) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ users });
+  });
 });
 
 // ========== ROUTES AUTHENTIFICATION ==========
 
 // Inscription
 app.post("/register", async (req, res) => {
-  const { email, username, password } = req.body;
+  let { email, username, password } = req.body;
+
+  // ⭐ Normaliser l'email (trim + minuscules)
+  email = email?.trim().toLowerCase();
+  username = username?.trim() || email.split("@")[0];
 
   console.log("📝 Tentative d'inscription:", { email, username });
 
@@ -115,44 +126,59 @@ app.post("/register", async (req, res) => {
     return res.status(400).json({ error: "Email et mot de passe requis" });
   }
 
-  try {
-    const hashedPassword = await bcrypt.hash(password, 10);
+  // Vérifier si l'email existe déjà
+  db.get("SELECT id FROM users WHERE email = ?", [email], async (err, existingUser) => {
+    if (err) {
+      console.error("Erreur DB:", err);
+      return res.status(500).json({ error: "Erreur serveur" });
+    }
 
-    db.run(
-      "INSERT INTO users (email, username, password) VALUES (?, ?, ?)",
-      [email, username || email.split("@")[0], hashedPassword],
-      function (err) {
-        if (err) {
-          if (err.message.includes("UNIQUE")) {
-            return res.status(400).json({ error: "Cet email est déjà utilisé" });
+    if (existingUser) {
+      return res.status(400).json({ error: "Cet email est déjà utilisé" });
+    }
+
+    try {
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      db.run(
+        "INSERT INTO users (email, username, password) VALUES (?, ?, ?)",
+        [email, username, hashedPassword],
+        function (err) {
+          if (err) {
+            console.error("Erreur DB inscription:", err);
+            return res.status(500).json({ error: "Erreur serveur" });
           }
-          console.error("Erreur DB inscription:", err);
-          return res.status(500).json({ error: "Erreur serveur" });
+
+          const userId = this.lastID;
+          console.log("✅ Utilisateur créé, ID:", userId);
+
+          db.run(
+            "INSERT INTO stats (user_id, total_sessions, total_time, streak) VALUES (?, ?, ?, ?)",
+            [userId, 0, 0, 0]
+          );
+
+          res.json({
+            success: true,
+            message: "Utilisateur créé avec succès",
+            userId: userId,
+            email: email,
+            username: username
+          });
         }
-
-        const userId = this.lastID;
-        console.log("✅ Utilisateur créé, ID:", userId);
-
-        db.run(
-          "INSERT INTO stats (user_id, total_sessions, total_time, streak) VALUES (?, ?, ?, ?)",
-          [userId, 0, 0, 0]
-        );
-
-        res.json({
-          message: "Utilisateur créé avec succès",
-          userId: userId,
-        });
-      }
-    );
-  } catch (err) {
-    console.error("Erreur inscription:", err);
-    res.status(500).json({ error: "Erreur serveur" });
-  }
+      );
+    } catch (err) {
+      console.error("Erreur inscription:", err);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
 });
 
 // Connexion
 app.post("/login", (req, res) => {
-  const { email, password } = req.body;
+  let { email, password } = req.body;
+
+  // ⭐ Normaliser l'email (trim + minuscules)
+  email = email?.trim().toLowerCase();
 
   console.log("📝 Tentative de connexion:", { email });
 
@@ -179,6 +205,7 @@ app.post("/login", (req, res) => {
 
     console.log("✅ Connexion réussie pour:", email, "ID:", user.id);
     res.json({
+      success: true,
       message: "Connexion réussie",
       userId: user.id,
       email: user.email,
@@ -187,10 +214,6 @@ app.post("/login", (req, res) => {
   });
 });
 
-// Ajoute après app.use(express.json())
-app.get("/", (req, res) => {
-  res.json({ status: "ok", message: "API SBStudy fonctionne" });
-});
 // ========== ROUTES UTILISATEUR ==========
 
 app.get("/user/:userId", (req, res) => {
@@ -199,7 +222,9 @@ app.get("/user/:userId", (req, res) => {
     "SELECT id, email, username, created_at FROM users WHERE id = ?",
     [userId],
     (err, user) => {
-      if (err || !user) return res.status(404).json({ error: "Utilisateur non trouvé" });
+      if (err || !user) {
+        return res.status(404).json({ error: "Utilisateur non trouvé" });
+      }
       res.json(user);
     }
   );
@@ -208,12 +233,14 @@ app.get("/user/:userId", (req, res) => {
 app.put("/user/:userId", (req, res) => {
   const { userId } = req.params;
   const { username } = req.body;
+  
   if (!username || username.trim() === "") {
     return res.status(400).json({ error: "Le pseudo ne peut pas être vide" });
   }
+  
   db.run("UPDATE users SET username = ? WHERE id = ?", [username.trim(), userId], function(err) {
     if (err) return res.status(500).json({ error: err.message });
-    res.json({ message: "Profil mis à jour", username });
+    res.json({ success: true, message: "Profil mis à jour", username: username.trim() });
   });
 });
 
@@ -234,6 +261,19 @@ app.post("/subjects", (req, res) => {
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ id: this.lastID });
+    }
+  );
+});
+
+app.put("/subjects/:id", (req, res) => {
+  const { id } = req.params;
+  const { sessions, hours } = req.body;
+  db.run(
+    "UPDATE subjects SET sessions = ?, hours = ? WHERE id = ?",
+    [sessions, hours, id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ message: "Matière mise à jour" });
     }
   );
 });
@@ -291,56 +331,6 @@ app.get("/stats/:userId", (req, res) => {
   db.get("SELECT total_sessions, total_time, streak FROM stats WHERE user_id = ?", [userId], (err, stats) => {
     res.json(stats || { total_sessions: 0, total_time: 0, streak: 0 });
   });
-});
-
-// backend/server.js — Remplace les routes POST par GET
-
-// Récupérer les questions (GET)
-app.get("/api/ai/get-questions/:userId/:subject", (req, res) => {
-  const { userId, subject } = req.params;
-  const decodedSubject = decodeURIComponent(subject);
-  
-  console.log("📖 Récupération questions GET pour:", { userId, subject: decodedSubject });
-  
-  db.all(
-    "SELECT id, question, answer FROM user_questions WHERE user_id = ? AND subject = ?",
-    [userId, decodedSubject],
-    (err, questions) => {
-      if (err) {
-        console.error("Erreur DB:", err);
-        return res.status(500).json({ error: err.message });
-      }
-      console.log(`✅ ${questions?.length || 0} questions trouvées`);
-      res.json({ success: true, questions: questions || [] });
-    }
-  );
-});
-
-// Récupérer les questions mélangées (GET)
-app.get("/api/ai/random-questions/:userId/:subject", (req, res) => {
-  const { userId, subject } = req.params;
-  const decodedSubject = decodeURIComponent(subject);
-  
-  console.log("🎲 Récupération questions aléatoires GET pour:", { userId, subject: decodedSubject });
-  
-  db.all(
-    "SELECT id, question, answer FROM user_questions WHERE user_id = ? AND subject = ?",
-    [userId, decodedSubject],
-    (err, questions) => {
-      if (err) {
-        console.error("Erreur DB:", err);
-        return res.status(500).json({ error: err.message });
-      }
-      
-      const shuffled = [...(questions || [])];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-      
-      res.json({ success: true, questions: shuffled, count: shuffled.length });
-    }
-  );
 });
 
 app.put("/stats/:userId", (req, res) => {
@@ -419,19 +409,16 @@ app.post("/api/ai/save-questions", (req, res) => {
   }, 100);
 });
 
-// Récupérer les questions (POST)
-app.post("/api/ai/get-questions", (req, res) => {
-  const { userId, subject } = req.body;
+// Récupérer les questions (GET)
+app.get("/api/ai/get-questions/:userId/:subject", (req, res) => {
+  const { userId, subject } = req.params;
+  const decodedSubject = decodeURIComponent(subject);
   
-  console.log("📖 Récupération questions pour:", { userId, subject });
-  
-  if (!userId || !subject) {
-    return res.status(400).json({ error: "userId et subject requis" });
-  }
+  console.log("📖 Récupération questions GET pour:", { userId, subject: decodedSubject });
   
   db.all(
     "SELECT id, question, answer FROM user_questions WHERE user_id = ? AND subject = ?",
-    [userId, subject],
+    [userId, decodedSubject],
     (err, questions) => {
       if (err) {
         console.error("Erreur DB:", err);
@@ -443,26 +430,22 @@ app.post("/api/ai/get-questions", (req, res) => {
   );
 });
 
-// Récupérer les questions mélangées (POST)
-app.post("/api/ai/random-questions", (req, res) => {
-  const { userId, subject } = req.body;
+// Récupérer les questions mélangées (GET)
+app.get("/api/ai/random-questions/:userId/:subject", (req, res) => {
+  const { userId, subject } = req.params;
+  const decodedSubject = decodeURIComponent(subject);
   
-  console.log("🎲 Récupération questions aléatoires pour:", { userId, subject });
-  
-  if (!userId || !subject) {
-    return res.status(400).json({ error: "userId et subject requis" });
-  }
+  console.log("🎲 Récupération questions aléatoires GET pour:", { userId, subject: decodedSubject });
   
   db.all(
     "SELECT id, question, answer FROM user_questions WHERE user_id = ? AND subject = ?",
-    [userId, subject],
+    [userId, decodedSubject],
     (err, questions) => {
       if (err) {
         console.error("Erreur DB:", err);
         return res.status(500).json({ error: err.message });
       }
       
-      // Mélanger les questions
       const shuffled = [...(questions || [])];
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -479,10 +462,10 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 Serveur démarré sur http://localhost:${PORT}`);
   console.log(`📁 Base de données: ${path.join(__dirname, "studyplanner.db")}`);
   console.log(`✅ Tables créées/vérifiées`);
-  console.log(`📌 Les IDs utilisateur commenceront à 1000`);
   console.log(`🤖 Routes IA activées :`);
   console.log(`   - POST /api/ai/summary`);
   console.log(`   - POST /api/ai/save-questions`);
-  console.log(`   - POST /api/ai/get-questions`);
-  console.log(`   - POST /api/ai/random-questions\n`);
+  console.log(`   - GET /api/ai/get-questions/:userId/:subject`);
+  console.log(`   - GET /api/ai/random-questions/:userId/:subject`);
+  console.log(`🔧 Route debug: GET /debug/users`);
 });
