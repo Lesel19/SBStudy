@@ -1,0 +1,398 @@
+/* -------------------------------------------------------
+   🌈 PALETTE MATERIAL YOU — CLAIR
+------------------------------------------------------- */
+
+/* index.css — Police SF Pro Display style Apple */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background: linear-gradient(180deg, #0F172A 0%, #111827 100%);
+  color: #F8FAFC;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-weight: 450;
+  letter-spacing: -0.02em;
+  position: relative;
+}
+
+/* Titres avec poids plus léger */
+h1, h2, h3, .title-large {
+  font-weight: 590;
+  letter-spacing: -0.02em;
+}
+
+/* Supprime tout padding-bottom ou margin-bottom excessif */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+
+
+
+body {
+  overflow-x: hidden;
+}
+
+/* Le conteneur principal ne doit pas avoir de padding-bottom supplémentaire */
+.main-content {
+  min-height: 100vh;
+  padding-bottom: 80px;
+}
+
+/* Textes normaux */
+p, span, li, .text-body {
+  font-weight: 450;
+  letter-spacing: -0.01em;
+}
+
+/* Petits textes */
+.text-small, .label, .badge {
+  font-weight: 480;
+  letter-spacing: -0.005em;
+}
+
+/* Éviter le bold partout */
+strong, b {
+  font-weight: 560;
+}
+
+/* Scrollbar personnalisée */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(52, 211, 153, 0.3);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(52, 211, 153, 0.5);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+}
+
+/* index.css */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #F8F9FC;
+  font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: #2C3E50;
+}
+
+/* Scrollbar personnalisée */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #EEF2F8;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #9DC3A2;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #7BAF7F;
+}
+
+/* Animations globales */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.page-transition {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Sélections */
+::selection {
+  background: rgba(59, 113, 202, 0.2);
+  color: #2C3E50;
+}
+
+:root {
+  --md-bg: #f7f7fb;
+  --md-surface: #ffffff;
+  --md-surface-2: rgba(255, 255, 255, 0.85);
+  --md-text: #2c2c2e;
+  --md-text-light: #6b6b6e;
+  --md-primary: #6a5acd;
+  --md-primary-light: rgba(106, 90, 205, 0.15);
+  --md-border: #e5e4e7;
+  --md-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  --radius: 20px;
+  --radius-sm: 14px;
+
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--md-bg);
+  color: var(--md-text);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* -------------------------------------------------------
+   🌙 MODE SOMBRE AUTOMATIQUE
+------------------------------------------------------- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --md-bg: #0f0f12;
+    --md-surface: #1a1a1e;
+    --md-surface-2: rgba(26, 26, 30, 0.85);
+    --md-text: #e5e5e7;
+    --md-text-light: #9c9ca1;
+    --md-primary: #b9a6ff;
+    --md-primary-light: rgba(185, 166, 255, 0.15);
+    --md-border: #2e2e33;
+    --md-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+}
+
+
+/* -------------------------------------------------------
+   🧱 RESET
+------------------------------------------------------- */
+body {
+  margin: 0;
+  background: var(--md-bg);
+  color: var(--md-text);
+}
+
+#root {
+  max-width: 100%;
+  min-height: 100vh;
+  display: flex;
+  padding-bottom: 0;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+/* -------------------------------------------------------
+   📝 TITRES
+------------------------------------------------------- */
+h1, h2, h3 {
+  margin: 0;
+  font-weight: 600;
+  color: var(--md-text);
+}
+
+h1 {
+  font-size: 32px;
+  margin-bottom: 20px;
+}
+
+h2 {
+  font-size: 24px;
+  margin-bottom: 12px;
+}
+
+h3 {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+/* -------------------------------------------------------
+   📦 CARTES MATERIAL YOU
+------------------------------------------------------- */
+.card {
+  background: var(--md-surface-2);
+  backdrop-filter: blur(12px);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--md-shadow);
+}
+
+/* -------------------------------------------------------
+   🔘 BOUTONS MATERIAL YOU
+------------------------------------------------------- */
+button {
+  border: none;
+  padding: 14px 18px;
+  border-radius: var(--radius-sm);
+  background: var(--md-primary);
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  transition: 0.25s ease;
+}
+
+button:hover {
+  transform: scale(1.03);
+  box-shadow: 0 4px 12px rgba(106, 90, 205, 0.3);
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+/* -------------------------------------------------------
+   ✏️ INPUTS MATERIAL YOU
+------------------------------------------------------- */
+input {
+  width: 90%;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--md-border);
+  background: var(--md-surface);
+  font-size: 16px;
+  margin-bottom: 12px;
+  transition: 0.25s;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--md-primary);
+  background: var(--md-primary-light);
+}
+
+/* -------------------------------------------------------
+   📱 ANIMATION DE TRANSITION ENTRE PAGES
+------------------------------------------------------- */
+.page-transition {
+  animation: fadeSlide 0.35s ease;
+}
+
+@keyframes fadeSlide {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* -------------------------------------------------------
+   🧭 BARRE DU BAS MATERIAL YOU
+------------------------------------------------------- */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 70px;
+  background: var(--md-surface-2);
+  backdrop-filter: blur(12px);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.15);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  z-index: 999;
+}
+
+.bottom-nav-icon {
+  font-size: 24px;
+  padding: 10px 18px;
+  border-radius: 16px;
+  transition: 0.25s ease;
+  cursor: pointer;
+  color: var(--md-text-light);
+}
+
+.bottom-nav-icon.active {
+  background: var(--md-primary-light);
+  color: var(--md-primary);
+  transform: scale(1.18);
+}
+
+/* -------------------------------------------------------
+   🧩 LISTES MATERIAL YOU
+------------------------------------------------------- */
+.list-item {
+  background: var(--md-surface);
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+  box-shadow: var(--md-shadow);
+}
+
+/* -------------------------------------------------------
+   🧘‍♂️ UTILITAIRES
+------------------------------------------------------- */
+.center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.mt-20 { margin-top: 20px; }
+.mb-20 { margin-bottom: 20px; }
+
+/* Dans index.css ou App.css */
+.menu-open {
+  overflow: hidden;
+}
+
+.menu-transition-enter {
+  transform: translateX(-100%);
+}
+
+.menu-transition-enter-active {
+  transform: translateX(0);
+  transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.1, 1);
+}
+
+.menu-transition-exit {
+  transform: translateX(0);
+}
+
+.menu-transition-exit-active {
+  transform: translateX(-100%);
+  transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.1, 1);
+}
+
+.overlay-transition-enter {
+  opacity: 0;
+}
+
+.overlay-transition-enter-active {
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.overlay-transition-exit {
+  opacity: 1;
+}
+
+.overlay-transition-exit-active {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
