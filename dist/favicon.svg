@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Dégradé principal bleu saphir -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3B71CA;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#2563EB;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1D4ED8;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Dégradé livre -->
+    <linearGradient id="bookGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F8FAFC;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#CBD5E1;stop-opacity:1" />
+    </linearGradient>
+
+    <linearGradient id="bookGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#E2E8F0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#94A3B8;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Dégradé calendrier -->
+    <linearGradient id="calGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#34D399;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#10B981;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Ombre -->
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#0F172A" flood-opacity="0.35"/>
+    </filter>
+
+    <!-- Glow pour l'étoile -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Fond carré arrondi -->
+  <rect x="32" y="32" width="448" height="448" rx="96" ry="96" fill="url(#bgGrad)" filter="url(#shadow)"/>
+
+  <!-- Effet glassmorphism intérieur -->
+  <rect x="56" y="56" width="400" height="400" rx="80" ry="80" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" stroke-width="1.5"/>
+
+  <!-- Effet de brillance -->
+  <ellipse cx="150" cy="120" rx="90" ry="60" fill="rgba(255,255,255,0.05)" transform="rotate(-35, 150, 120)"/>
+
+  <!-- ===== LIVRE OUVERT ===== -->
+  <g transform="translate(256, 235)">
+    <!-- Page gauche -->
+    <path d="M-110,-60 L-110,90 Q-50,65 0,100 L0,-70 Q-50,-45 -110,-60 Z" 
+          fill="url(#bookGrad1)" opacity="0.95"/>
+    
+    <!-- Page droite -->
+    <path d="M110,-60 L110,90 Q50,65 0,100 L0,-70 Q50,-45 110,-60 Z" 
+          fill="url(#bookGrad2)" opacity="0.95"/>
+    
+    <!-- Ligne de reliure -->
+    <line x1="0" y1="-70" x2="0" y2="100" stroke="#64748B" stroke-width="2" opacity="0.5"/>
+    <line x1="-0.5" y1="-70" x2="-0.5" y2="100" stroke="rgba(255,255,255,0.4)" stroke-width="0.5"/>
+    
+    <!-- Lignes page gauche -->
+    <line x1="-85" y1="-40" x2="-20" y2="-40" stroke="#475569" stroke-width="2.5" opacity="0.5" stroke-linecap="round"/>
+    <line x1="-85" y1="-22" x2="-25" y2="-22" stroke="#475569" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+    <line x1="-85" y1="-4" x2="-30" y2="-4" stroke="#475569" stroke-width="2.5" opacity="0.4" stroke-linecap="round"/>
+    <line x1="-85" y1="14" x2="-20" y2="14" stroke="#475569" stroke-width="2.5" opacity="0.4" stroke-linecap="round"/>
+    <line x1="-85" y1="32" x2="-35" y2="32" stroke="#475569" stroke-width="2.5" opacity="0.35" stroke-linecap="round"/>
+    <line x1="-85" y1="50" x2="-25" y2="50" stroke="#475569" stroke-width="2.5" opacity="0.3" stroke-linecap="round"/>
+    
+    <!-- Lignes page droite -->
+    <line x1="25" y1="-40" x2="90" y2="-40" stroke="#475569" stroke-width="2.5" opacity="0.5" stroke-linecap="round"/>
+    <line x1="25" y1="-22" x2="85" y2="-22" stroke="#475569" stroke-width="2.5" opacity="0.45" stroke-linecap="round"/>
+    <line x1="25" y1="-4" x2="75" y2="-4" stroke="#475569" stroke-width="2.5" opacity="0.4" stroke-linecap="round"/>
+    <line x1="25" y1="14" x2="90" y2="14" stroke="#475569" stroke-width="2.5" opacity="0.4" stroke-linecap="round"/>
+    <line x1="25" y1="32" x2="80" y2="32" stroke="#475569" stroke-width="2.5" opacity="0.35" stroke-linecap="round"/>
+    <line x1="25" y1="50" x2="85" y2="50" stroke="#475569" stroke-width="2.5" opacity="0.3" stroke-linecap="round"/>
+  </g>
+
+  <!-- ===== CALENDRIER ===== -->
+  <g transform="translate(256, 325)">
+    <!-- Fond calendrier -->
+    <rect x="-38" y="-15" width="76" height="56" rx="12" fill="#FFFFFF" opacity="0.98"/>
+    
+    <!-- Bandeau calendrier -->
+    <rect x="-38" y="-15" width="76" height="16" rx="12" fill="url(#calGrad)"/>
+    <rect x="-38" y="-6" width="76" height="8" fill="url(#calGrad)"/>
+    
+    <!-- Date -->
+    <text x="-22" y="15" font-family="'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif" font-size="12" font-weight="590" fill="#1E293B">16</text>
+    <text x="-22" y="27" font-family="'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif" font-size="7" font-weight="480" fill="#64748B">AVR</text>
+    
+    <!-- Cercle -->
+    <circle cx="-22" cy="22" r="10" fill="none" stroke="url(#calGrad)" stroke-width="1.5" opacity="0.6"/>
+    
+    <!-- Coche -->
+    <path d="M15,-11 L22,-3 L36,-16" fill="none" stroke="#34D399" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- ===== ÉTOILE ===== -->
+  <g transform="translate(200, 155)">
+    <polygon points="0,-18 5,-6 18,-6 8,2.5 12,14 0,7 -12,14 -8,2.5 -18,-6 -5,-6" 
+             fill="#FCD34D" opacity="0.95" filter="url(#glow)"/>
+  </g>
+
+  <!-- ===== PETITE ÉTOILE ===== -->
+  <g transform="translate(320, 145) scale(0.5)">
+    <polygon points="0,-18 5,-6 18,-6 8,2.5 12,14 0,7 -12,14 -8,2.5 -18,-6 -5,-6" 
+             fill="#FCD34D" opacity="0.85"/>
+  </g>
+
+  <!-- ===== POINTS DÉCORATIFS ===== -->
+  <circle cx="125" cy="400" r="3" fill="#34D399" opacity="0.45"/>
+  <circle cx="387" cy="400" r="3" fill="#34D399" opacity="0.45"/>
+  <circle cx="145" cy="125" r="2" fill="#FCD34D" opacity="0.4"/>
+  <circle cx="375" cy="385" r="2" fill="#F8FAFC" opacity="0.15"/>
+</svg>
