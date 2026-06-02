@@ -1,113 +1,128 @@
 // backend/server.js
 const express = require("express");
-const sqlite3 = require("sqlite3").verbose();
+const { Pool } = require("pg");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
 const path = require("path");
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Base de données
-const db = new sqlite3.Database(path.join(__dirname, "studyplanner.db"));
+// ========== CONNEXION POSTGRESQL ==========
+// Render fournit automatiquement DATABASE_URL
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false // Requis pour Render PostgreSQL
+  }
+});
+
+// Tester la connexion
+pool.connect((err, client, release) => {
+  if (err) {
+    console.error("❌ Erreur connexion PostgreSQL:", err.stack);
+  } else {
+    console.log("✅ Connecté à PostgreSQL");
+    release();
+  }
+});
 
 // ========== CRÉATION DES TABLES ==========
-db.serialize(() => {
-  // Table des utilisateurs
-  db.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT UNIQUE,
-      username TEXT,
-      password TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+async function initTables() {
+  try {
+    // Table des utilisateurs
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        username TEXT,
+        password TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log("✅ Table users créée/vérifiée");
 
-  // Ajouter la colonne username si elle n'existe pas
-  db.all("PRAGMA table_info(users)", (err, columns) => {
-    if (err) return;
-    const hasUsername = columns.some(col => col.name === "username");
-    if (!hasUsername) {
-      db.run("ALTER TABLE users ADD COLUMN username TEXT");
-      console.log("✅ Colonne username ajoutée");
-    }
-  });
+    // Table des matières
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS subjects (
+        id SERIAL PRIMARY KEY,
+        name TEXT,
+        color TEXT,
+        sessions INTEGER DEFAULT 0,
+        hours INTEGER DEFAULT 0,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+    console.log("✅ Table subjects créée/vérifiée");
 
-  // Table des matières
-  db.run(`
-    CREATE TABLE IF NOT EXISTS subjects (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT,
-      color TEXT,
-      sessions INTEGER DEFAULT 0,
-      hours INTEGER DEFAULT 0,
-      user_id INTEGER,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-  `);
+    // Table des sessions programmées
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS planned_sessions (
+        id SERIAL PRIMARY KEY,
+        subject TEXT,
+        date TEXT,
+        time TEXT,
+        completed BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+    console.log("✅ Table planned_sessions créée/vérifiée");
 
-  // Table des sessions programmées
-  db.run(`
-    CREATE TABLE IF NOT EXISTS planned_sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      subject TEXT,
-      date TEXT,
-      time TEXT,
-      completed BOOLEAN DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      user_id INTEGER,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-  `);
+    // Table des statistiques
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS stats (
+        id SERIAL PRIMARY KEY,
+        total_sessions INTEGER DEFAULT 0,
+        total_time INTEGER DEFAULT 0,
+        streak INTEGER DEFAULT 0,
+        user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+    console.log("✅ Table stats créée/vérifiée");
 
-  // Table des statistiques
-  db.run(`
-    CREATE TABLE IF NOT EXISTS stats (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      total_sessions INTEGER DEFAULT 0,
-      total_time INTEGER DEFAULT 0,
-      streak INTEGER DEFAULT 0,
-      user_id INTEGER UNIQUE,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-  `);
+    // Table des questions personnalisées
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_questions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        subject TEXT,
+        question TEXT,
+        answer TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log("✅ Table user_questions créée/vérifiée");
 
-  // Table des questions personnalisées pour l'IA
-  db.run(`
-    CREATE TABLE IF NOT EXISTS user_questions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER,
-      subject TEXT,
-      question TEXT,
-      answer TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-  `);
+  } catch (err) {
+    console.error("❌ Erreur création tables:", err);
+  }
+}
 
-  console.log("✅ Tables créées/vérifiées");
-});
+// Initialiser les tables au démarrage
+initTables();
 
 // ========== ROUTES DE TEST ==========
 app.get("/", (req, res) => {
-  res.json({ status: "ok", message: "API SBStudy fonctionne !" });
+  res.json({ status: "ok", message: "API SBStudy fonctionne avec PostgreSQL !" });
 });
 
 app.get("/test", (req, res) => {
   res.json({ message: "Backend fonctionne !" });
 });
 
-// ========== ROUTE DEBUG (À RETIRER APRÈS TEST) ==========
-app.get("/debug/users", (req, res) => {
-  db.all("SELECT id, email, username, created_at FROM users", [], (err, users) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ users });
-  });
+// ========== ROUTE DEBUG ==========
+app.get("/debug/users", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT id, email, username, created_at FROM users");
+    res.json({ users: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ========== ROUTES AUTHENTIFICATION ==========
@@ -116,7 +131,6 @@ app.get("/debug/users", (req, res) => {
 app.post("/register", async (req, res) => {
   let { email, username, password } = req.body;
 
-  // ⭐ Normaliser l'email (trim + minuscules)
   email = email?.trim().toLowerCase();
   username = username?.trim() || email.split("@")[0];
 
@@ -126,58 +140,47 @@ app.post("/register", async (req, res) => {
     return res.status(400).json({ error: "Email et mot de passe requis" });
   }
 
-  // Vérifier si l'email existe déjà
-  db.get("SELECT id FROM users WHERE email = ?", [email], async (err, existingUser) => {
-    if (err) {
-      console.error("Erreur DB:", err);
-      return res.status(500).json({ error: "Erreur serveur" });
-    }
-
-    if (existingUser) {
+  try {
+    // Vérifier si l'email existe déjà
+    const existingUser = await pool.query("SELECT id FROM users WHERE email = $1", [email]);
+    
+    if (existingUser.rows.length > 0) {
       return res.status(400).json({ error: "Cet email est déjà utilisé" });
     }
 
-    try {
-      const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const result = await pool.query(
+      "INSERT INTO users (email, username, password) VALUES ($1, $2, $3) RETURNING id",
+      [email, username, hashedPassword]
+    );
+    
+    const userId = result.rows[0].id;
+    console.log("✅ Utilisateur créé, ID:", userId);
 
-      db.run(
-        "INSERT INTO users (email, username, password) VALUES (?, ?, ?)",
-        [email, username, hashedPassword],
-        function (err) {
-          if (err) {
-            console.error("Erreur DB inscription:", err);
-            return res.status(500).json({ error: "Erreur serveur" });
-          }
+    // Créer les stats par défaut
+    await pool.query(
+      "INSERT INTO stats (user_id, total_sessions, total_time, streak) VALUES ($1, $2, $3, $4)",
+      [userId, 0, 0, 0]
+    );
 
-          const userId = this.lastID;
-          console.log("✅ Utilisateur créé, ID:", userId);
-
-          db.run(
-            "INSERT INTO stats (user_id, total_sessions, total_time, streak) VALUES (?, ?, ?, ?)",
-            [userId, 0, 0, 0]
-          );
-
-          res.json({
-            success: true,
-            message: "Utilisateur créé avec succès",
-            userId: userId,
-            email: email,
-            username: username
-          });
-        }
-      );
-    } catch (err) {
-      console.error("Erreur inscription:", err);
-      res.status(500).json({ error: "Erreur serveur" });
-    }
-  });
+    res.json({
+      success: true,
+      message: "Utilisateur créé avec succès",
+      userId: userId,
+      email: email,
+      username: username
+    });
+  } catch (err) {
+    console.error("Erreur inscription:", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
 });
 
 // Connexion
-app.post("/login", (req, res) => {
+app.post("/login", async (req, res) => {
   let { email, password } = req.body;
 
-  // ⭐ Normaliser l'email (trim + minuscules)
   email = email?.trim().toLowerCase();
 
   console.log("📝 Tentative de connexion:", { email });
@@ -186,11 +189,9 @@ app.post("/login", (req, res) => {
     return res.status(400).json({ error: "Email et mot de passe requis" });
   }
 
-  db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
-    if (err) {
-      console.error("Erreur DB:", err);
-      return res.status(500).json({ error: "Erreur serveur" });
-    }
+  try {
+    const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+    const user = result.rows[0];
 
     if (!user) {
       console.log("❌ Utilisateur non trouvé:", email);
@@ -211,26 +212,31 @@ app.post("/login", (req, res) => {
       email: user.email,
       username: user.username || user.email.split("@")[0],
     });
-  });
+  } catch (err) {
+    console.error("Erreur login:", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
 });
 
 // ========== ROUTES UTILISATEUR ==========
 
-app.get("/user/:userId", (req, res) => {
+app.get("/user/:userId", async (req, res) => {
   const { userId } = req.params;
-  db.get(
-    "SELECT id, email, username, created_at FROM users WHERE id = ?",
-    [userId],
-    (err, user) => {
-      if (err || !user) {
-        return res.status(404).json({ error: "Utilisateur non trouvé" });
-      }
-      res.json(user);
+  try {
+    const result = await pool.query(
+      "SELECT id, email, username, created_at FROM users WHERE id = $1",
+      [userId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Utilisateur non trouvé" });
     }
-  );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.put("/user/:userId", (req, res) => {
+app.put("/user/:userId", async (req, res) => {
   const { userId } = req.params;
   const { username } = req.body;
   
@@ -238,234 +244,220 @@ app.put("/user/:userId", (req, res) => {
     return res.status(400).json({ error: "Le pseudo ne peut pas être vide" });
   }
   
-  db.run("UPDATE users SET username = ? WHERE id = ?", [username.trim(), userId], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
+  try {
+    await pool.query("UPDATE users SET username = $1 WHERE id = $2", [username.trim(), userId]);
     res.json({ success: true, message: "Profil mis à jour", username: username.trim() });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ========== ROUTES MATIÈRES ==========
 
-app.get("/subjects/:userId", (req, res) => {
+app.get("/subjects/:userId", async (req, res) => {
   const { userId } = req.params;
-  db.all("SELECT * FROM subjects WHERE user_id = ? ORDER BY name", [userId], (err, subjects) => {
-    res.json(subjects || []);
-  });
+  try {
+    const result = await pool.query(
+      "SELECT * FROM subjects WHERE user_id = $1 ORDER BY name",
+      [userId]
+    );
+    res.json(result.rows || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post("/subjects", (req, res) => {
+app.post("/subjects", async (req, res) => {
   const { name, color, userId } = req.body;
-  db.run(
-    "INSERT INTO subjects (name, color, sessions, hours, user_id) VALUES (?, ?, ?, ?, ?)",
-    [name, color, 0, 0, userId],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: this.lastID });
-    }
-  );
+  try {
+    const result = await pool.query(
+      "INSERT INTO subjects (name, color, sessions, hours, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+      [name, color, 0, 0, userId]
+    );
+    res.json({ id: result.rows[0].id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.put("/subjects/:id", (req, res) => {
+app.delete("/subjects/:id", async (req, res) => {
   const { id } = req.params;
-  const { sessions, hours } = req.body;
-  db.run(
-    "UPDATE subjects SET sessions = ?, hours = ? WHERE id = ?",
-    [sessions, hours, id],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ message: "Matière mise à jour" });
-    }
-  );
-});
-
-app.delete("/subjects/:id", (req, res) => {
-  const { id } = req.params;
-  db.run("DELETE FROM subjects WHERE id = ?", [id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
+  try {
+    await pool.query("DELETE FROM subjects WHERE id = $1", [id]);
     res.json({ message: "Matière supprimée" });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ========== ROUTES SESSIONS PROGRAMMÉES ==========
 
-app.get("/planned-sessions/:userId", (req, res) => {
+app.get("/planned-sessions/:userId", async (req, res) => {
   const { userId } = req.params;
-  db.all("SELECT * FROM planned_sessions WHERE user_id = ? ORDER BY date, time", [userId], (err, sessions) => {
-    res.json(sessions || []);
-  });
+  try {
+    const result = await pool.query(
+      "SELECT * FROM planned_sessions WHERE user_id = $1 ORDER BY date, time",
+      [userId]
+    );
+    res.json(result.rows || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post("/planned-sessions", (req, res) => {
+app.post("/planned-sessions", async (req, res) => {
   const { subject, date, time, userId } = req.body;
-  db.run(
-    "INSERT INTO planned_sessions (subject, date, time, completed, user_id) VALUES (?, ?, ?, ?, ?)",
-    [subject, date, time, 0, userId],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: this.lastID });
-    }
-  );
+  try {
+    const result = await pool.query(
+      "INSERT INTO planned_sessions (subject, date, time, completed, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+      [subject, date, time, false, userId]
+    );
+    res.json({ id: result.rows[0].id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.put("/planned-sessions/:id", (req, res) => {
+app.put("/planned-sessions/:id", async (req, res) => {
   const { id } = req.params;
   const { completed } = req.body;
-  db.run("UPDATE planned_sessions SET completed = ? WHERE id = ?", [completed ? 1 : 0, id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
+  try {
+    await pool.query("UPDATE planned_sessions SET completed = $1 WHERE id = $2", [completed, id]);
     res.json({ message: "Session mise à jour" });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.delete("/planned-sessions/:id", (req, res) => {
+app.delete("/planned-sessions/:id", async (req, res) => {
   const { id } = req.params;
-  db.run("DELETE FROM planned_sessions WHERE id = ?", [id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
+  try {
+    await pool.query("DELETE FROM planned_sessions WHERE id = $1", [id]);
     res.json({ message: "Session supprimée" });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ========== ROUTES STATISTIQUES ==========
 
-app.get("/stats/:userId", (req, res) => {
+app.get("/stats/:userId", async (req, res) => {
   const { userId } = req.params;
-  db.get("SELECT total_sessions, total_time, streak FROM stats WHERE user_id = ?", [userId], (err, stats) => {
-    res.json(stats || { total_sessions: 0, total_time: 0, streak: 0 });
-  });
+  try {
+    const result = await pool.query(
+      "SELECT total_sessions, total_time, streak FROM stats WHERE user_id = $1",
+      [userId]
+    );
+    res.json(result.rows[0] || { total_sessions: 0, total_time: 0, streak: 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.put("/stats/:userId", (req, res) => {
+app.put("/stats/:userId", async (req, res) => {
   const { userId } = req.params;
   const { total_sessions, total_time, streak } = req.body;
-  db.run(
-    `INSERT INTO stats (user_id, total_sessions, total_time, streak) 
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(user_id) DO UPDATE SET
-     total_sessions = excluded.total_sessions,
-     total_time = excluded.total_time,
-     streak = excluded.streak`,
-    [userId, total_sessions, total_time, streak],
-    (err) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ message: "Stats mises à jour" });
-    }
-  );
+  try {
+    await pool.query(
+      `INSERT INTO stats (user_id, total_sessions, total_time, streak) 
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id) DO UPDATE SET
+       total_sessions = EXCLUDED.total_sessions,
+       total_time = EXCLUDED.total_time,
+       streak = EXCLUDED.streak`,
+      [userId, total_sessions, total_time, streak]
+    );
+    res.json({ message: "Stats mises à jour" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// ========== ROUTES IA ==========
-
-// Générer un résumé
+// ========== ROUTES IA (résumé) ==========
 app.post("/api/ai/summary", (req, res) => {
   const { topic } = req.body;
   
-  console.log("🤖 Génération de résumé pour:", topic);
-  
   const summaries = {
-    "pomodoro": "🍅 La méthode Pomodoro est une technique de gestion du temps développée par Francesco Cirillo. Elle consiste à travailler par intervalles de 25 minutes, séparés par des pauses de 5 minutes.",
-    "react": "⚛️ React est une bibliothèque JavaScript pour créer des interfaces utilisateur. Elle utilise un DOM virtuel et des composants réutilisables.",
-    "javascript": "📜 JavaScript est un langage de programmation qui rend les pages web interactives.",
-    "html": "🌐 HTML est le langage de balisage standard pour créer des pages web.",
-    "css": "🎨 CSS est le langage utilisé pour styliser les pages web.",
-    "python": "🐍 Python est un langage polyvalent, facile à apprendre.",
-    "sql": "🗄️ SQL est le langage standard pour gérer les bases de données."
+    "pomodoro": "🍅 La méthode Pomodoro est une technique de gestion du temps développée par Francesco Cirillo...",
+    "react": "⚛️ React est une bibliothèque JavaScript pour créer des interfaces utilisateur...",
+    "javascript": "📜 JavaScript est un langage de programmation...",
+    "html": "🌐 HTML est le langage de balisage standard...",
+    "css": "🎨 CSS est le langage utilisé pour styliser...",
+    "python": "🐍 Python est un langage polyvalent...",
+    "sql": "🗄️ SQL est le langage standard pour gérer les bases de données..."
   };
   
-  const lowerTopic = topic?.toLowerCase() || "";
-  const summary = summaries[lowerTopic] || `📚 Résumé pour "${topic}" : Continue tes révisions ! 💪`;
-  
+  const summary = summaries[topic?.toLowerCase()] || `📚 Résumé pour "${topic}" : Continue tes révisions ! 💪`;
   res.json({ success: true, summary });
 });
 
-// Sauvegarder les questions personnalisées
-app.post("/api/ai/save-questions", (req, res) => {
+// ========== ROUTES IA QUESTIONS ==========
+
+app.post("/api/ai/save-questions", async (req, res) => {
   const { userId, subject, questions } = req.body;
-  
-  console.log("📝 Sauvegarde des questions pour:", subject, "par user:", userId);
-  console.log("📝 Nombre de questions:", questions?.length);
   
   if (!userId || !subject || !questions || questions.length === 0) {
     return res.status(400).json({ error: "Données incomplètes" });
   }
   
-  db.run("DELETE FROM user_questions WHERE user_id = ? AND subject = ?", [userId, subject]);
+  try {
+    await pool.query("DELETE FROM user_questions WHERE user_id = $1 AND subject = $2", [userId, subject]);
+    
+    for (const q of questions) {
+      await pool.query(
+        "INSERT INTO user_questions (user_id, subject, question, answer) VALUES ($1, $2, $3, $4)",
+        [userId, subject, q.question, q.answer]
+      );
+    }
+    
+    res.json({ success: true, message: `${questions.length} questions sauvegardées`, count: questions.length });
+  } catch (err) {
+    console.error("Erreur:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/ai/get-questions/:userId/:subject", async (req, res) => {
+  const { userId, subject } = req.params;
+  const decodedSubject = decodeURIComponent(subject);
   
-  let inserted = 0;
-  questions.forEach(q => {
-    db.run(
-      "INSERT INTO user_questions (user_id, subject, question, answer) VALUES (?, ?, ?, ?)",
-      [userId, subject, q.question, q.answer],
-      (err) => {
-        if (err) console.error("Erreur insertion:", err);
-        else inserted++;
-      }
+  try {
+    const result = await pool.query(
+      "SELECT id, question, answer FROM user_questions WHERE user_id = $1 AND subject = $2",
+      [userId, decodedSubject]
     );
-  });
-  
-  setTimeout(() => {
-    res.json({ 
-      success: true, 
-      message: `${inserted} questions sauvegardées pour "${subject}"`,
-      count: inserted
-    });
-  }, 100);
+    res.json({ success: true, questions: result.rows || [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Récupérer les questions (GET)
-app.get("/api/ai/get-questions/:userId/:subject", (req, res) => {
+app.get("/api/ai/random-questions/:userId/:subject", async (req, res) => {
   const { userId, subject } = req.params;
   const decodedSubject = decodeURIComponent(subject);
   
-  console.log("📖 Récupération questions GET pour:", { userId, subject: decodedSubject });
-  
-  db.all(
-    "SELECT id, question, answer FROM user_questions WHERE user_id = ? AND subject = ?",
-    [userId, decodedSubject],
-    (err, questions) => {
-      if (err) {
-        console.error("Erreur DB:", err);
-        return res.status(500).json({ error: err.message });
-      }
-      console.log(`✅ ${questions?.length || 0} questions trouvées`);
-      res.json({ success: true, questions: questions || [] });
+  try {
+    const result = await pool.query(
+      "SELECT id, question, answer FROM user_questions WHERE user_id = $1 AND subject = $2",
+      [userId, decodedSubject]
+    );
+    
+    // Mélanger les questions
+    const shuffled = [...(result.rows || [])];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-  );
-});
-
-// Récupérer les questions mélangées (GET)
-app.get("/api/ai/random-questions/:userId/:subject", (req, res) => {
-  const { userId, subject } = req.params;
-  const decodedSubject = decodeURIComponent(subject);
-  
-  console.log("🎲 Récupération questions aléatoires GET pour:", { userId, subject: decodedSubject });
-  
-  db.all(
-    "SELECT id, question, answer FROM user_questions WHERE user_id = ? AND subject = ?",
-    [userId, decodedSubject],
-    (err, questions) => {
-      if (err) {
-        console.error("Erreur DB:", err);
-        return res.status(500).json({ error: err.message });
-      }
-      
-      const shuffled = [...(questions || [])];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-      
-      res.json({ success: true, questions: shuffled, count: shuffled.length });
-    }
-  );
+    
+    res.json({ success: true, questions: shuffled, count: shuffled.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ========== LANCEMENT ==========
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 Serveur démarré sur http://localhost:${PORT}`);
-  console.log(`📁 Base de données: ${path.join(__dirname, "studyplanner.db")}`);
-  console.log(`✅ Tables créées/vérifiées`);
-  console.log(`🤖 Routes IA activées :`);
-  console.log(`   - POST /api/ai/summary`);
-  console.log(`   - POST /api/ai/save-questions`);
-  console.log(`   - GET /api/ai/get-questions/:userId/:subject`);
-  console.log(`   - GET /api/ai/random-questions/:userId/:subject`);
+  console.log(`✅ PostgreSQL connecté`);
   console.log(`🔧 Route debug: GET /debug/users`);
 });
