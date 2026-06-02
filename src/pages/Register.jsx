@@ -1,7 +1,7 @@
 // components/Register.jsx — Version avec pseudo
 import { useState } from "react";
 import { useTimer } from "../contexts/TimerContext";
-
+import { register } from '../services/api';
 //SVG
 import KeyIcon from "../assets/key-icon.svg";
 import EmailIcon from "../assets/email-icon.svg";
@@ -44,18 +44,9 @@ function Register({ onSwitchToLogin }) {
     setSuccess("");
     
     try {
-      const response = await fetch("http://localhost:3001/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          email, 
-          username: username.trim() || email.split("@")[0], 
-          password 
-        }),
-      });
-      
+      const response = await register(email, username, password);
+
+
       const data = await response.json();
       
       if (response.ok) {

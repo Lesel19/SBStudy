@@ -1,6 +1,7 @@
 // components/Login.jsx — Version corrigée
 import { useState } from "react";
 import { useTimer } from "../contexts/TimerContext";
+import { login } from '../services/api';
 
 //SVG
 import KeyIcon from "../assets/key-icon.svg";
@@ -30,12 +31,7 @@ function Login({ setUser, onSwitchToRegister }) {
     setError("");
     
     try {
-      const response = await fetch("http://localhost:3001/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
+      const response = await login(email, password);
       const data = await response.json();
       console.log("📥 Réponse du serveur:", data);
 

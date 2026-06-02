@@ -2,6 +2,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTimer } from "../contexts/TimerContext";
+import { register } from '../services/api';
+import { getUser, updateUser } from '../services/api';
+
 
 // Importer tes SVG
 import HomeIcon from "../assets/home-icon.svg";
@@ -63,7 +66,7 @@ function Profile({ setUser }) {
     setIsLoading(true);
     setError("");
     try {
-      const response = await fetch(`http://localhost:3001/user/${userId}`);
+      const response = await getUser(userId);
       const data = await response.json();
       
       if (response.ok) {
@@ -110,14 +113,7 @@ function Profile({ setUser }) {
     setSuccess("");
 
     try {
-      const response = await fetch(`http://localhost:3001/user/${userId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username: newUsername.trim() }),
-      });
-
+      const response = await updateUser(userId, { username: newUsername.trim() });
       const data = await response.json();
 
       if (response.ok) {

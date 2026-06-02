@@ -187,6 +187,10 @@ app.post("/login", (req, res) => {
   });
 });
 
+// Ajoute après app.use(express.json())
+app.get("/", (req, res) => {
+  res.json({ status: "ok", message: "API SBStudy fonctionne" });
+});
 // ========== ROUTES UTILISATEUR ==========
 
 app.get("/user/:userId", (req, res) => {

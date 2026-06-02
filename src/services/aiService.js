@@ -1,5 +1,5 @@
 // services/aiService.js
-const API_URL = "http://localhost:3001/api/ai";
+const API_URL = "https://sbstudy-backend.onrender.com/api/ai";
 
 // Générer un résumé
 export const generateSummary = async (topic) => {
